@@ -5,9 +5,10 @@ import cv2
 import argparse
 import imageio
 
-
-
-
+# The project: Determine the best k lines, in terms of quality and length
+# To determine the best top k lines in terms of length and quality we
+# would like to apply edge detection using the Sobel filter or any other
+# filter. Then apply Hough transforms to detect and rank lines.
 
 def dnorm(x, mu, sd):
     return 1 / (np.sqrt(2 * np.pi) * sd) * np.e ** (-np.power((x - mu) / sd, 2) / 2)
@@ -32,6 +33,7 @@ def gaussian_kernel(size, sigma=1, verbose=False):
 def gaussian_blur(image, kernel_size, verbose=False):
     kernel = gaussian_kernel(kernel_size, sigma=math.sqrt(kernel_size), verbose=verbose)
     return convolution(image, kernel, average=True, verbose=verbose)
+
 
 def convolution(image, kernel, average=False, verbose=False):
     if len(image.shape) == 3:
@@ -113,6 +115,7 @@ def sobel_edge_detection(image, filter, convert_to_degree=False, verbose=False):
 
     return gradient_magnitude, gradient_direction
 
+
 def non_max_suppression(gradient_magnitude, gradient_direction, verbose):
     image_row, image_col = gradient_magnitude.shape
 
@@ -153,9 +156,7 @@ def non_max_suppression(gradient_magnitude, gradient_direction, verbose):
 
 def threshold(image, low, high, weak, verbose=False):
     output = np.zeros(image.shape)
-
     strong = 255
-
     strong_row, strong_col = np.where(image >= high)
     weak_row, weak_col = np.where((image <= high) & (image >= low))
 
@@ -238,6 +239,7 @@ def hysteresis(image, weak):
     final_image[final_image > 255] = 255
 
     return final_image
+
 
 def rgb2gray(rgb):
     return np.dot(rgb[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
@@ -341,22 +343,16 @@ def show_hough_line(img, accumulator, thetas, rhos, save_path=None):
 
 
 if __name__ == '__main__':
-
     image = cv2.imread("lena256.jpg", 0)
-    ver = False
-    blurred_image = gaussian_blur(image, kernel_size=9, verbose=ver)
-
+    image = gaussian_blur(image, kernel_size=9, verbose=False)# check the verbose val
+    # edge detection using sobol filter
     edge_filter = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+    gradient_magnitude, gradient_direction = sobel_edge_detection(image, edge_filter, convert_to_degree=False,
 
-    gradient_magnitude, gradient_direction = sobel_edge_detection(blurred_image, edge_filter, convert_to_degree=ver,
-                                                                  verbose=ver)
-
-    new_image = non_max_suppression(gradient_magnitude, gradient_direction, verbose=ver)
-
+                                                                verbose=False)
+    new_image = non_max_suppression(gradient_magnitude, gradient_direction, verbose=False)
     weak = 50
-
-    new_image = threshold(new_image, 5, 20, weak=weak, verbose=ver)
-
+    new_image = threshold(new_image, 5, 20, weak=weak, verbose=False)
     new_image = hysteresis(new_image, weak)
 
     if new_image.ndim == 3:
