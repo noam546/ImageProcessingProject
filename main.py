@@ -106,14 +106,13 @@ def non_max_suppression(gradient_magnitude, gradient_direction):
     return output
 
 
-def threshold(image, low, high, weak, verbose=False):
+def threshold(image, low, high):
     output = np.zeros(image.shape)
-    strong = 255
     strong_row, strong_col = np.where(image >= high)
     weak_row, weak_col = np.where((image <= high) & (image >= low))
 
-    output[strong_row, strong_col] = strong
-    output[weak_row, weak_col] = weak
+    output[strong_row, strong_col] = 255
+    output[weak_row, weak_col] = 0
 
     return output
 
@@ -362,26 +361,33 @@ def draw_lines_on_image(image, accumulator, thetas, rhos, k):
   # Return the image with the lines drawn on it
   return result
 
-if __name__ == '__main__':
-    path = "lena256.jpg"
-    k = 10
-    image = cv2.imread(path, 0)
+def edge_detection(image):
     blurred_image = gaussian_blur(image, kernel_size=9)
     edge_filter = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
-    gradient_magnitude, gradient_direction = sobel_edge_detection(image, edge_filter, convert_to_degree=False)
-    new_image = non_max_suppression(gradient_magnitude, gradient_direction)
-    weak = 50
-    new_image = threshold(new_image, 5, 20, weak=weak)
-    new_image = hysteresis(new_image, weak)
 
-    if new_image.ndim == 3:
-        new_image = rgb2gray(new_image)
-    accumulator, thetas, rhos = hough_line(new_image)
-    show_hough_line(new_image, accumulator, thetas, rhos)
+    gradient_magnitude, gradient_direction = sobel_edge_detection(blurred_image, edge_filter, convert_to_degree=False)
+
+    new_image = non_max_suppression(gradient_magnitude, gradient_direction)
+    new_image = threshold(new_image, 5, 20)
+    # new_image = hysteresis(new_image, 5)
+    # if new_image.ndim == 3:
+    #     new_image = rgb2gray(new_image)
+    return new_image
+
+
+if __name__ == '__main__':
+
+    path = input("please write the image path ")
+    k = int(input("please write how many lines you want to draw "))
+
+    image = cv2.imread(path, 0)
+    edges = edge_detection(image)
+    plt.imshow(edges, cmap='gray')
+    plt.title("after edge detection")
+    plt.show()
+    accumulator, thetas, rhos = hough_line(edges)
+    # show_hough_line(new_image, accumulator, thetas, rhos)
     image_with_lines = draw_lines_on_image(image, accumulator, thetas, rhos, k)
     cv2.imwrite("result.jpg", image_with_lines)
-    # plt.imshow(image_with_lines, cmap='gray')
-    # plt.title("k lines")
-    # plt.show()
 
 
