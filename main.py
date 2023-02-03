@@ -56,14 +56,9 @@ def convolution(image, kernel, average=False):
 
 
 def sobel_edge_detection(image, filter, convert_to_degree=False):
-    new_image_x = convolution(image, filter, verbose)
+    new_image_x = convolution(image, filter)
 
-    if verbose:
-        plt.imshow(new_image_x, cmap='gray')
-        plt.title("Horizontal Edge")
-        plt.show()
-
-    new_image_y = convolution(image, np.flip(filter.T, axis=0), verbose)
+    new_image_y = convolution(image, np.flip(filter.T, axis=0))
 
     gradient_magnitude = np.sqrt(np.square(new_image_x) + np.square(new_image_y))
 
@@ -368,10 +363,9 @@ def draw_lines_on_image(image, accumulator, thetas, rhos, k):
   return result
 
 if __name__ == '__main__':
-
-
-    image = cv2.imread("lena256.jpg", 0)
-    ver = False
+    path = "lena256.jpg"
+    k = 10
+    image = cv2.imread(path, 0)
     blurred_image = gaussian_blur(image, kernel_size=9)
     edge_filter = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
     gradient_magnitude, gradient_direction = sobel_edge_detection(image, edge_filter, convert_to_degree=False)
@@ -384,13 +378,10 @@ if __name__ == '__main__':
         new_image = rgb2gray(new_image)
     accumulator, thetas, rhos = hough_line(new_image)
     show_hough_line(new_image, accumulator, thetas, rhos)
-
-    k = 40
-
-
     image_with_lines = draw_lines_on_image(image, accumulator, thetas, rhos, k)
+    cv2.imwrite("result.jpg", image_with_lines)
+    # plt.imshow(image_with_lines, cmap='gray')
+    # plt.title("k lines")
+    # plt.show()
 
-    plt.imshow(image_with_lines, cmap='gray')
-    plt.title("k lines")
-    plt.show()
 
