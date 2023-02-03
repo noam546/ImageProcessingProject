@@ -14,7 +14,7 @@ def dnorm(x, mu, sd):
     return 1 / (np.sqrt(2 * np.pi) * sd) * np.e ** (-np.power((x - mu) / sd, 2) / 2)
 
 
-def gaussian_kernel(size, sigma=1, verbose=False):
+def gaussian_kernel(size, sigma=1):
     kernel_1D = np.linspace(-(size // 2), size // 2, size)
     for i in range(size):
         kernel_1D[i] = dnorm(kernel_1D[i], 0, sigma)
@@ -22,27 +22,18 @@ def gaussian_kernel(size, sigma=1, verbose=False):
 
     kernel_2D *= 1.0 / kernel_2D.max()
 
-    if verbose:
-        plt.imshow(kernel_2D, interpolation='none', cmap='gray')
-        plt.title("Kernel ( {}X{} )".format(size, size))
-        plt.show()
 
     return kernel_2D
 
 
-def gaussian_blur(image, kernel_size, verbose=False):
-    kernel = gaussian_kernel(kernel_size, sigma=math.sqrt(kernel_size), verbose=verbose)
-    return convolution(image, kernel, average=True, verbose=verbose)
+def gaussian_blur(image, kernel_size):
+    kernel = gaussian_kernel(kernel_size, sigma=math.sqrt(kernel_size))
+    return convolution(image, kernel, average=True)
 
 
-def convolution(image, kernel, average=False, verbose=False):
+def convolution(image, kernel, average=False):
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    if verbose:
-        plt.imshow(image, cmap='gray')
-        plt.title("Image")
-        plt.show()
 
     image_row, image_col = image.shape
     kernel_row, kernel_col = kernel.shape
@@ -56,11 +47,6 @@ def convolution(image, kernel, average=False, verbose=False):
 
     padded_image[pad_height:padded_image.shape[0] - pad_height, pad_width:padded_image.shape[1] - pad_width] = image
 
-    if verbose:
-        plt.imshow(padded_image, cmap='gray')
-        plt.title("Padded Image")
-        plt.show()
-
     for row in range(image_row):
         for col in range(image_col):
             output[row, col] = np.sum(kernel * padded_image[row:row + kernel_row, col:col + kernel_col])
@@ -68,15 +54,10 @@ def convolution(image, kernel, average=False, verbose=False):
                 output[row, col] /= kernel.shape[0] * kernel.shape[1]
 
 
-    if verbose:
-        plt.imshow(output, cmap='gray')
-        plt.title("Output Image using {}X{} Kernel".format(kernel_row, kernel_col))
-        plt.show()
-
     return output
 
 
-def sobel_edge_detection(image, filter, convert_to_degree=False, verbose=False):
+def sobel_edge_detection(image, filter, convert_to_degree=False):
     new_image_x = convolution(image, filter, verbose)
 
     if verbose:
@@ -86,19 +67,9 @@ def sobel_edge_detection(image, filter, convert_to_degree=False, verbose=False):
 
     new_image_y = convolution(image, np.flip(filter.T, axis=0), verbose)
 
-    if verbose:
-        plt.imshow(new_image_y, cmap='gray')
-        plt.title("Vertical Edge")
-        plt.show()
-
     gradient_magnitude = np.sqrt(np.square(new_image_x) + np.square(new_image_y))
 
     gradient_magnitude *= 255.0 / gradient_magnitude.max()
-
-    if verbose:
-        plt.imshow(gradient_magnitude, cmap='gray')
-        plt.title("Gradient Magnitude")
-        plt.show()
 
     gradient_direction = np.arctan2(new_image_y, new_image_x)
 
@@ -109,7 +80,7 @@ def sobel_edge_detection(image, filter, convert_to_degree=False, verbose=False):
     return gradient_magnitude, gradient_direction
 
 
-def non_max_suppression(gradient_magnitude, gradient_direction, verbose):
+def non_max_suppression(gradient_magnitude, gradient_direction):
     image_row, image_col = gradient_magnitude.shape
 
     output = np.zeros(gradient_magnitude.shape)
@@ -139,11 +110,6 @@ def non_max_suppression(gradient_magnitude, gradient_direction, verbose):
             if gradient_magnitude[row, col] >= before_pixel and gradient_magnitude[row, col] >= after_pixel:
                 output[row, col] = gradient_magnitude[row, col]
 
-    if verbose:
-        plt.imshow(output, cmap='gray')
-        plt.title("Non Max Suppression")
-        plt.show()
-
     return output
 
 
@@ -155,8 +121,6 @@ def threshold(image, low, high, weak, verbose=False):
 
     output[strong_row, strong_col] = strong
     output[weak_row, weak_col] = weak
-
-
 
     return output
 
@@ -236,20 +200,7 @@ def rgb2gray(rgb):
 
 
 def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
-    """
-    Hough transform for lines
-    Input:
-    img - 2D binary image with nonzeros representing edges
-    angle_step - Spacing between angles to use every n-th angle
-                 between -90 and 90 degrees. Default step is 1.
-    lines_are_white - boolean indicating whether lines to be detected are white
-    value_threshold - Pixel values above or below the value_threshold are edges
-    Returns:
-    accumulator - 2D array of the hough transform accumulator
-    theta - array of angles used in computation, in radians.
-    rhos - array of rho values. Max size is 2 times the diagonal
-           distance of the input image.
-    """
+
     # Rho and Theta ranges
     thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))
     width, height = img.shape
@@ -281,8 +232,6 @@ def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
 
 
 def fast_hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
-    """hough line using vectorized numpy operations,
-    may take more memory, but takes much less time"""
     # Rho and Theta ranges
     thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step)) #can be changed
     #width, height = col.size  #if we use pillow
@@ -311,7 +260,7 @@ def fast_hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
     return accumulator, thetas, rhos
 
 
-def show_hough_line(img, accumulator, thetas, rhos, save_path=None):
+def show_hough_line(img, accumulator, thetas, rhos):
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 10))
 
@@ -329,8 +278,6 @@ def show_hough_line(img, accumulator, thetas, rhos, save_path=None):
     ax[1].axis('image')
 
     # plt.axis('off')
-    if save_path is not None:
-        plt.savefig(save_path, bbox_inches='tight')
     plt.show()
 
 
@@ -425,22 +372,20 @@ def draw_lines_on_image(image, accumulator, thetas, rhos, k):
 if __name__ == '__main__':
 
 
-    image = cv2.imread("img58585.jpg", 0)
+    image = cv2.imread("lena256.jpg", 0)
     ver = False
-    blurred_image = gaussian_blur(image, kernel_size=9, verbose=ver)
+    blurred_image = gaussian_blur(image, kernel_size=9)
     edge_filter = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
-    gradient_magnitude, gradient_direction = sobel_edge_detection(image, edge_filter, convert_to_degree=False,
-
-                                                                verbose=False)
-    new_image = non_max_suppression(gradient_magnitude, gradient_direction, verbose=False)
+    gradient_magnitude, gradient_direction = sobel_edge_detection(image, edge_filter, convert_to_degree=False)
+    new_image = non_max_suppression(gradient_magnitude, gradient_direction)
     weak = 50
-    new_image = threshold(new_image, 5, 20, weak=weak, verbose=False)
+    new_image = threshold(new_image, 5, 20, weak=weak)
     new_image = hysteresis(new_image, weak)
 
     if new_image.ndim == 3:
         new_image = rgb2gray(new_image)
     accumulator, thetas, rhos = hough_line(new_image)
-    show_hough_line(new_image, accumulator, thetas, rhos, save_path='output.png')
+    show_hough_line(new_image, accumulator, thetas, rhos)
 
     k = 40
 
