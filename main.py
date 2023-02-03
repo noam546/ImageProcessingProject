@@ -35,13 +35,7 @@ def gaussian_blur(image, kernel_size, verbose=False):
 
 def convolution(image, kernel, average=False, verbose=False):
     if len(image.shape) == 3:
-        print("Found 3 Channels : {}".format(image.shape))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        print("Converted to Gray Channel. Size : {}".format(image.shape))
-    else:
-        print("Image Shape : {}".format(image.shape))
-
-    print("Kernel Shape : {}".format(kernel.shape))
 
     if verbose:
         plt.imshow(image, cmap='gray')
@@ -71,7 +65,6 @@ def convolution(image, kernel, average=False, verbose=False):
             if average:
                 output[row, col] /= kernel.shape[0] * kernel.shape[1]
 
-    print("Output Image size : {}".format(output.shape))
 
     if verbose:
         plt.imshow(output, cmap='gray')
@@ -239,6 +232,7 @@ def hysteresis(image, weak):
 
     return final_image
 
+
 def rgb2gray(rgb):
     return np.dot(rgb[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
 
@@ -287,6 +281,7 @@ def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
 
     return accumulator, thetas, rhos
 
+
 def fast_hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
     """hough line using vectorized numpy operations,
     may take more memory, but takes much less time"""
@@ -317,6 +312,7 @@ def fast_hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
         accumulator[rhos,i] = counts
     return accumulator, thetas, rhos
 
+
 def show_hough_line(img, accumulator, thetas, rhos, save_path=None):
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 10))
@@ -337,12 +333,100 @@ def show_hough_line(img, accumulator, thetas, rhos, save_path=None):
     # plt.axis('off')
     if save_path is not None:
         plt.savefig(save_path, bbox_inches='tight')
-    # plt.show()
+    plt.show()
 
+
+def find_lines(accumulator, thetas, rhos):
+    # Define the threshold for line detection
+    threshold = 0.5 * np.max(accumulator)
+
+    # Find the peaks in the accumulator
+    peaks = np.argwhere(accumulator > threshold)
+
+    # Initialize an empty list to store the lines
+    lines = []
+
+    # Iterate over the peaks
+    for peak in peaks:
+        rho = rhos[peak[0]]
+        theta = thetas[peak[1]]
+
+        # Compute the line parameters
+        a = np.cos(theta)
+        b = np.sin(theta)
+        x0 = a * rho
+        y0 = b * rho
+
+        # Compute the end points of the line
+        x1 = int(x0 + 1000 * (-b))
+        y1 = int(y0 + 1000 * (a))
+        x2 = int(x0 - 1000 * (-b))
+        y2 = int(y0 - 1000 * (a))
+
+        # Store the line as a tuple (x1, y1, x2, y2)
+        lines.append((x1, y1, x2, y2))
+
+    # Return the list of lines
+    return lines
+
+
+def find_best_k_lines(accumulator, thetas, rhos, k):
+    # Define the threshold for line detection
+    threshold = 0.5 * np.max(accumulator)
+
+    # Find the peaks in the accumulator
+    peaks = np.argwhere(accumulator > threshold)
+
+    # Sort the peaks by accumulator value in descending order
+    peaks = peaks[np.argsort(accumulator[peaks[:, 0], peaks[:, 1]])][::-1]
+
+    # Initialize an empty list to store the lines
+    lines = []
+
+    # Iterate over the peaks
+    for i, peak in enumerate(peaks):
+        if i == k:
+            break
+
+        rho = rhos[peak[0]]
+        theta = thetas[peak[1]]
+
+        # Store the line as a tuple (rho, theta)
+        lines.append((rho, theta))
+
+    # Return the list of lines
+    return lines
+
+def draw_lines(image, lines):
+  for rho, theta in lines:
+    a = np.cos(theta)
+    b = np.sin(theta)
+    x0 = a * rho
+    y0 = b * rho
+    x1 = int(x0 + 1000 * (-b))
+    y1 = int(y0 + 1000 * (a))
+    x2 = int(x0 - 1000 * (-b))
+    y2 = int(y0 - 1000 * (a))
+    cv2.line(image, (x1, y1), (x2, y2), (160, 255, 0), 2)
+  return image
+
+
+def draw_lines_on_image(image, accumulator, thetas, rhos, k):
+  # Find the best k lines
+  lines = find_best_k_lines(accumulator, thetas, rhos, k)
+
+  # Draw the lines on a blank image
+  lines_image = draw_lines(np.zeros_like(image), lines)
+
+  # Overlay the lines on the original image
+  result = cv2.addWeighted(image, 0.8, lines_image, 1, 0)
+
+  # Return the image with the lines drawn on it
+  return result
 
 if __name__ == '__main__':
 
-    image = cv2.imread("lena256.jpg", 0)
+    image = cv2.imread("img58585.jpg", 0)
     ver = False
     blurred_image = gaussian_blur(image, kernel_size=9, verbose=ver)
 
@@ -364,6 +448,12 @@ if __name__ == '__main__':
     accumulator, thetas, rhos = hough_line(new_image)
     show_hough_line(new_image, accumulator, thetas, rhos, save_path='output.png')
 
-    # plt.imshow(new_image, cmap='gray')
-    # plt.title("Canny Edge Detector")
-    # plt.show()
+    k = 40
+
+
+    image_with_lines = draw_lines_on_image(image, accumulator, thetas, rhos, k)
+
+    plt.imshow(image_with_lines, cmap='gray')
+    plt.title("k lines")
+    plt.show()
+
