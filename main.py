@@ -156,10 +156,7 @@ def threshold(image, low, high, weak, verbose=False):
     output[strong_row, strong_col] = strong
     output[weak_row, weak_col] = weak
 
-    if verbose:
-        plt.imshow(output, cmap='gray')
-        plt.title("threshold")
-        plt.show()
+
 
     return output
 
