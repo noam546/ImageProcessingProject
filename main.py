@@ -2,8 +2,6 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 import cv2
-import argparse
-import imageio
 
 # The project: Determine the best k lines, in terms of quality and length
 # To determine the best top k lines in terms of length and quality we
