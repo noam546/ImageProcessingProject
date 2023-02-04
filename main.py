@@ -178,7 +178,7 @@ def rgb2gray(rgb):
     return np.dot(rgb[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
 
 
-def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
+def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=20):
     # Rho and Theta ranges
     thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))
     width, height = img.shape
@@ -192,7 +192,6 @@ def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
 
     # Hough accumulator array of theta vs rho
     accumulator = np.zeros((2 * diag_len, num_thetas), dtype=np.uint8)
-    # (row, col) indexes to edges
     are_edges = img > value_threshold if lines_are_white else img < value_threshold
     y_idxs, x_idxs = np.nonzero(are_edges)
 
@@ -209,31 +208,31 @@ def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
     return accumulator, thetas, rhos
 
 
-def fast_hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
-    # Rho and Theta ranges
-    thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))  # can be changed
-    # width, height = col.size  #if we use pillow
-    width, height = img.shape
-    diag_len = int(np.ceil(np.sqrt(width * width + height * height)))  # max_dist
-    rhos = np.linspace(-diag_len, diag_len, diag_len * 2)
-    # Cache some reusable values
-    cos_theta = np.cos(thetas)
-    sin_theta = np.sin(thetas)
-    num_thetas = len(thetas)
-    # Hough accumulator array of theta vs rho
-    accumulator = np.zeros((2 * diag_len, num_thetas))
-    are_edges = img > value_threshold if lines_are_white else img < value_threshold
-    # are_edges = cv2.Canny(img,50,150,apertureSize = 3)
-    y_idxs, x_idxs = np.nonzero(are_edges)  # (row, col) indexes to edges
-    # Vote in the hough accumulator
-    xcosthetas = np.dot(x_idxs.reshape((-1, 1)), cos_theta.reshape((1, -1)))
-    ysinthetas = np.dot(y_idxs.reshape((-1, 1)), sin_theta.reshape((1, -1)))
-    rhosmat = np.round(xcosthetas + ysinthetas) + diag_len
-    rhosmat = rhosmat.astype(np.int16)
-    for i in range(num_thetas):
-        rhos, counts = np.unique(rhosmat[:, i], return_counts=True)
-        accumulator[rhos, i] = counts
-    return accumulator, thetas, rhos
+# def fast_hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
+#     # Rho and Theta ranges
+#     thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))  # can be changed
+#     # width, height = col.size  #if we use pillow
+#     width, height = img.shape
+#     diag_len = int(np.ceil(np.sqrt(width * width + height * height)))  # max_dist
+#     rhos = np.linspace(-diag_len, diag_len, diag_len * 2)
+#     # Cache some reusable values
+#     cos_theta = np.cos(thetas)
+#     sin_theta = np.sin(thetas)
+#     num_thetas = len(thetas)
+#     # Hough accumulator array of theta vs rho
+#     accumulator = np.zeros((2 * diag_len, num_thetas))
+#     are_edges = img > value_threshold if lines_are_white else img < value_threshold
+#     # are_edges = cv2.Canny(img,50,150,apertureSize = 3)
+#     y_idxs, x_idxs = np.nonzero(are_edges)  # (row, col) indexes to edges
+#     # Vote in the hough accumulator
+#     xcosthetas = np.dot(x_idxs.reshape((-1, 1)), cos_theta.reshape((1, -1)))
+#     ysinthetas = np.dot(y_idxs.reshape((-1, 1)), sin_theta.reshape((1, -1)))
+#     rhosmat = np.round(xcosthetas + ysinthetas) + diag_len
+#     rhosmat = rhosmat.astype(np.int16)
+#     for i in range(num_thetas):
+#         rhos, counts = np.unique(rhosmat[:, i], return_counts=True)
+#         accumulator[rhos, i] = counts
+#     return accumulator, thetas, rhos
 
 
 def show_hough_line(img, accumulator, thetas, rhos):
@@ -254,37 +253,37 @@ def show_hough_line(img, accumulator, thetas, rhos):
     # plt.axis('off')
     plt.show()
 
-
-def find_lines(accumulator, thetas, rhos):
-    # Define the threshold for line detection
-    threshold = 0.5 * np.max(accumulator)
-    # Find the peaks in the accumulator
-    peaks = np.argwhere(accumulator > threshold)
-    # Initialize an empty list to store the lines
-    lines = []
-    # Iterate over the peaks
-    for peak in peaks:
-        rho = rhos[peak[0]]
-        theta = thetas[peak[1]]
-        # Compute the line parameters
-        a = np.cos(theta)
-        b = np.sin(theta)
-        x0 = a * rho
-        y0 = b * rho
-        # Compute the end points of the line
-        x1 = int(x0 + 1000 * (-b))
-        y1 = int(y0 + 1000 * (a))
-        x2 = int(x0 - 1000 * (-b))
-        y2 = int(y0 - 1000 * (a))
-        # Store the line as a tuple (x1, y1, x2, y2)
-        lines.append((x1, y1, x2, y2))
-    return lines
+#
+# def find_lines(accumulator, thetas, rhos):
+#     # Define the threshold for line detection
+#     threshold = 0.5 * np.max(accumulator)
+#     # Find the peaks in the accumulator
+#     peaks = np.argwhere(accumulator > threshold)
+#     # Initialize an empty list to store the lines
+#     lines = []
+#     # Iterate over the peaks
+#     for peak in peaks:
+#         rho = rhos[peak[0]]
+#         theta = thetas[peak[1]]
+#         # Compute the line parameters
+#         a = np.cos(theta)
+#         b = np.sin(theta)
+#         x0 = a * rho
+#         y0 = b * rho
+#         # Compute the end points of the line
+#         x1 = int(x0 + 1000 * (-b))
+#         y1 = int(y0 + 1000 * (a))
+#         x2 = int(x0 - 1000 * (-b))
+#         y2 = int(y0 - 1000 * (a))
+#         # Store the line as a tuple (x1, y1, x2, y2)
+#         lines.append((x1, y1, x2, y2))
+#     return lines
 
 
 def find_best_k_lines(accumulator, thetas, rhos, k):
     # Define the threshold for line detection
-    threshold = 0.5 * np.max(accumulator)
-    # Find the peaks in the accumulator
+    threshold = 0.2 * np.max(accumulator)
+    # # Find the peaks in the accumulator
     peaks = np.argwhere(accumulator > threshold)
     # Sort the peaks by accumulator value in descending order
     peaks = peaks[np.argsort(accumulator[peaks[:, 0], peaks[:, 1]])][::-1]
@@ -334,10 +333,10 @@ def edge_detection(image):
     gradient_magnitude, gradient_direction = sobel_edge_detection(blurred_image, edge_filter, convert_to_degree=False)
 
     new_image = non_max_suppression(gradient_magnitude, gradient_direction)
-    new_image = threshold(new_image, 5, 20)
-    # new_image = hysteresis(new_image, 5)
-    # if new_image.ndim == 3:
-    #     new_image = rgb2gray(new_image)
+    new_image = threshold(new_image, 5, 25)
+    new_image = hysteresis(new_image, 5)
+    if new_image.ndim == 3:
+        new_image = rgb2gray(new_image)
     return new_image
 
 
