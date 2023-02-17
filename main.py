@@ -3,11 +3,11 @@ import math
 import numpy as np
 import cv2
 
-
-# The project: Determine the best k lines, in terms of quality and length
+# The project's goal: Determine the best k lines, in terms of quality and length
 # To determine the best top k lines in terms of length and quality we
-# would like to apply edge detection using the Sobel filter or any other
-# filter. Then apply Hough transforms to detect and rank lines.
+# would like to apply edge detection using the Sobel filter.
+# Then apply Hough transform to detect and rank the lines.
+
 
 def dnorm(x, mu, sd):
     return 1 / (np.sqrt(2 * np.pi) * sd) * np.e ** (-np.power((x - mu) / sd, 2) / 2)
@@ -24,10 +24,11 @@ def gaussian_kernel(size, sigma=1):
 
 def gaussian_blur(image, kernel_size):
     kernel = gaussian_kernel(kernel_size, sigma=math.sqrt(kernel_size))
-    return convolution(image, kernel, average=True)
+    return convolution(image, kernel)
 
 
-def convolution(image, kernel, average=False):
+# def convolution(image, kernel, average=False):
+def convolution(image, kernel):
     if len(image.shape) == 3:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -45,29 +46,25 @@ def convolution(image, kernel, average=False):
     for row in range(image_row):
         for col in range(image_col):
             output[row, col] = np.sum(kernel * padded_image[row:row + kernel_row, col:col + kernel_col])
-            if average:
-                output[row, col] /= kernel.shape[0] * kernel.shape[1]
+            # if average:
+            #     output[row, col] /= kernel.shape[0] * kernel.shape[1]
 
     return output
 
 
-def sobel_edge_detection(image, filter, convert_to_degree=False):
-    new_image_x = convolution(image, filter)
-    new_image_y = convolution(image, np.flip(filter.T, axis=0))
+def apply_edge_detection(image, filter_x, filter_y):
+    new_image_x = convolution(image, filter_x)
+    new_image_y = convolution(image, filter_y)
     gradient_magnitude = np.sqrt(np.square(new_image_x) + np.square(new_image_y))
     gradient_magnitude *= 255.0 / gradient_magnitude.max()
     gradient_direction = np.arctan2(new_image_y, new_image_x)
 
-    if convert_to_degree:
-        gradient_direction = np.rad2deg(gradient_direction)
-        gradient_direction += 180
-
     return gradient_magnitude, gradient_direction
 
 
+# Edge thinning
 def non_max_suppression(gradient_magnitude, gradient_direction):
     image_row, image_col = gradient_magnitude.shape
-
     output = np.zeros(gradient_magnitude.shape)
 
     PI = 180
@@ -107,6 +104,15 @@ def threshold(image, low, high):
     return output
 
 
+def black_or_white(image, row, col):
+    if image[row, col + 1] == 255 or image[row, col - 1] == 255 or image[
+        row - 1, col] == 255 or image[row + 1, col] == 255 or image[
+        row - 1, col - 1] == 255 or image[row + 1, col - 1] == 255 or image[
+        row - 1, col + 1] == 255 or image[row + 1, col + 1] == 255:
+        return 255
+    return 0
+
+
 def hysteresis(image, weak):
     image_row, image_col = image.shape
 
@@ -115,70 +121,35 @@ def hysteresis(image, weak):
     for row in range(1, image_row):
         for col in range(1, image_col):
             if top_to_bottom[row, col] == weak:
-                if top_to_bottom[row, col + 1] == 255 or top_to_bottom[row, col - 1] == 255 or top_to_bottom[
-                    row - 1, col] == 255 or top_to_bottom[
-                    row + 1, col] == 255 or top_to_bottom[
-                    row - 1, col - 1] == 255 or top_to_bottom[row + 1, col - 1] == 255 or top_to_bottom[
-                    row - 1, col + 1] == 255 or top_to_bottom[
-                    row + 1, col + 1] == 255:
-                    top_to_bottom[row, col] = 255
-                else:
-                    top_to_bottom[row, col] = 0
+                top_to_bottom[row, col] = black_or_white(top_to_bottom, row, col)
 
     bottom_to_top = image.copy()
 
     for row in range(image_row - 1, 0, -1):
         for col in range(image_col - 1, 0, -1):
             if bottom_to_top[row, col] == weak:
-                if bottom_to_top[row, col + 1] == 255 or bottom_to_top[row, col - 1] == 255 or bottom_to_top[
-                    row - 1, col] == 255 or bottom_to_top[
-                    row + 1, col] == 255 or bottom_to_top[
-                    row - 1, col - 1] == 255 or bottom_to_top[row + 1, col - 1] == 255 or bottom_to_top[
-                    row - 1, col + 1] == 255 or bottom_to_top[
-                    row + 1, col + 1] == 255:
-                    bottom_to_top[row, col] = 255
-                else:
-                    bottom_to_top[row, col] = 0
+                bottom_to_top[row, col] = black_or_white(bottom_to_top, row, col)
 
     right_to_left = image.copy()
 
     for row in range(1, image_row):
         for col in range(image_col - 1, 0, -1):
             if right_to_left[row, col] == weak:
-                if right_to_left[row, col + 1] == 255 or right_to_left[row, col - 1] == 255 or right_to_left[
-                    row - 1, col] == 255 or right_to_left[
-                    row + 1, col] == 255 or right_to_left[
-                    row - 1, col - 1] == 255 or right_to_left[row + 1, col - 1] == 255 or right_to_left[
-                    row - 1, col + 1] == 255 or right_to_left[
-                    row + 1, col + 1] == 255:
-                    right_to_left[row, col] = 255
-                else:
-                    right_to_left[row, col] = 0
+                right_to_left[row, col] = black_or_white(right_to_left, row, col)
 
     left_to_right = image.copy()
 
     for row in range(image_row - 1, 0, -1):
         for col in range(1, image_col):
             if left_to_right[row, col] == weak:
-                if left_to_right[row, col + 1] == 255 or left_to_right[row, col - 1] == 255 or left_to_right[
-                    row - 1, col] == 255 or left_to_right[
-                    row + 1, col] == 255 or left_to_right[
-                    row - 1, col - 1] == 255 or left_to_right[row + 1, col - 1] == 255 or left_to_right[
-                    row - 1, col + 1] == 255 or left_to_right[
-                    row + 1, col + 1] == 255:
-                    left_to_right[row, col] = 255
-                else:
-                    left_to_right[row, col] = 0
+                left_to_right[row, col] = black_or_white(left_to_right, row, col)
+
     final_image = top_to_bottom + bottom_to_top + right_to_left + left_to_right
     final_image[final_image > 255] = 255
     return final_image
 
 
-def rgb2gray(rgb):
-    return np.dot(rgb[..., :3], [0.299, 0.587, 0.114]).astype(np.uint8)
-
-
-def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=20):
+def hough_line(img, angle_step=1):
     # Rho and Theta ranges
     thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))
     width, height = img.shape
@@ -192,7 +163,7 @@ def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=20):
 
     # Hough accumulator array of theta vs rho
     accumulator = np.zeros((2 * diag_len, num_thetas), dtype=np.uint8)
-    are_edges = img > value_threshold if lines_are_white else img < value_threshold
+    are_edges = img == 255
     y_idxs, x_idxs = np.nonzero(are_edges)
 
     # Vote in the hough accumulator
@@ -208,82 +179,10 @@ def hough_line(img, angle_step=1, lines_are_white=True, value_threshold=20):
     return accumulator, thetas, rhos
 
 
-# def fast_hough_line(img, angle_step=1, lines_are_white=True, value_threshold=5):
-#     # Rho and Theta ranges
-#     thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))  # can be changed
-#     # width, height = col.size  #if we use pillow
-#     width, height = img.shape
-#     diag_len = int(np.ceil(np.sqrt(width * width + height * height)))  # max_dist
-#     rhos = np.linspace(-diag_len, diag_len, diag_len * 2)
-#     # Cache some reusable values
-#     cos_theta = np.cos(thetas)
-#     sin_theta = np.sin(thetas)
-#     num_thetas = len(thetas)
-#     # Hough accumulator array of theta vs rho
-#     accumulator = np.zeros((2 * diag_len, num_thetas))
-#     are_edges = img > value_threshold if lines_are_white else img < value_threshold
-#     # are_edges = cv2.Canny(img,50,150,apertureSize = 3)
-#     y_idxs, x_idxs = np.nonzero(are_edges)  # (row, col) indexes to edges
-#     # Vote in the hough accumulator
-#     xcosthetas = np.dot(x_idxs.reshape((-1, 1)), cos_theta.reshape((1, -1)))
-#     ysinthetas = np.dot(y_idxs.reshape((-1, 1)), sin_theta.reshape((1, -1)))
-#     rhosmat = np.round(xcosthetas + ysinthetas) + diag_len
-#     rhosmat = rhosmat.astype(np.int16)
-#     for i in range(num_thetas):
-#         rhos, counts = np.unique(rhosmat[:, i], return_counts=True)
-#         accumulator[rhos, i] = counts
-#     return accumulator, thetas, rhos
-
-
-def show_hough_line(img, accumulator, thetas, rhos):
-    fig, ax = plt.subplots(1, 2, figsize=(10, 10))
-
-    ax[0].imshow(img, cmap=plt.cm.gray)
-    ax[0].set_title('Input image')
-    ax[0].axis('image')
-
-    ax[1].imshow(
-        accumulator, cmap='jet',
-        extent=[np.rad2deg(thetas[-1]), np.rad2deg(thetas[0]), rhos[-1], rhos[0]])
-    ax[1].set_aspect('equal', adjustable='box')
-    ax[1].set_title('Hough transform')
-    ax[1].set_xlabel('Angles (degrees)')
-    ax[1].set_ylabel('Distance (pixels)')
-    ax[1].axis('image')
-    # plt.axis('off')
-    plt.show()
-
-#
-# def find_lines(accumulator, thetas, rhos):
-#     # Define the threshold for line detection
-#     threshold = 0.5 * np.max(accumulator)
-#     # Find the peaks in the accumulator
-#     peaks = np.argwhere(accumulator > threshold)
-#     # Initialize an empty list to store the lines
-#     lines = []
-#     # Iterate over the peaks
-#     for peak in peaks:
-#         rho = rhos[peak[0]]
-#         theta = thetas[peak[1]]
-#         # Compute the line parameters
-#         a = np.cos(theta)
-#         b = np.sin(theta)
-#         x0 = a * rho
-#         y0 = b * rho
-#         # Compute the end points of the line
-#         x1 = int(x0 + 1000 * (-b))
-#         y1 = int(y0 + 1000 * (a))
-#         x2 = int(x0 - 1000 * (-b))
-#         y2 = int(y0 - 1000 * (a))
-#         # Store the line as a tuple (x1, y1, x2, y2)
-#         lines.append((x1, y1, x2, y2))
-#     return lines
-
-
 def find_best_k_lines(accumulator, thetas, rhos, k):
     # Define the threshold for line detection
     threshold = 0.2 * np.max(accumulator)
-    # # Find the peaks in the accumulator
+    # Find the peaks in the accumulator
     peaks = np.argwhere(accumulator > threshold)
     # Sort the peaks by accumulator value in descending order
     peaks = peaks[np.argsort(accumulator[peaks[:, 0], peaks[:, 1]])][::-1]
@@ -316,40 +215,44 @@ def draw_lines(image, lines):
 
 
 def draw_lines_on_image(image, accumulator, thetas, rhos, k):
-    # Find the best k lines
     lines = find_best_k_lines(accumulator, thetas, rhos, k)
     # Draw the lines on a blank image
     lines_image = draw_lines(np.zeros_like(image), lines)
     # Overlay the lines on the original image
     result = cv2.addWeighted(image, 0.8, lines_image, 1, 0)
-    # Return the image with the lines drawn on it
     return result
 
 
 def edge_detection(image):
-    blurred_image = gaussian_blur(image, kernel_size=9)
-    edge_filter = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+    blurred_image = gaussian_blur(image, kernel_size=5)
+    edge_filter_x = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]])
+    edge_filter_y = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
 
-    gradient_magnitude, gradient_direction = sobel_edge_detection(blurred_image, edge_filter, convert_to_degree=False)
+    gradient_magnitude, gradient_direction = apply_edge_detection(blurred_image, edge_filter_x, edge_filter_y)
 
     new_image = non_max_suppression(gradient_magnitude, gradient_direction)
     new_image = threshold(new_image, 5, 25)
-    new_image = hysteresis(new_image, 5)
-    if new_image.ndim == 3:
-        new_image = rgb2gray(new_image)
+    new_image = hysteresis(new_image, 255)
+
     return new_image
 
 
-if __name__ == '__main__':
-    path = input("please write the image path ")
-    k = int(input("please write how many lines you want to draw "))
-
-    image = cv2.imread(path, 0)
-    edges = edge_detection(image)
-    plt.imshow(edges, cmap='gray')
-    plt.title("after edge detection")
-    plt.show()
+def detect_best_k_lines(image_path, k):
+    image_grey = cv2.imread(image_path, 0)
+    image = cv2.imread(image_path)
+    # plt.imshow(image, cmap='gray')
+    # plt.title("before edge detection")
+    # plt.show()
+    edges = edge_detection(image_grey)
+    # plt.imshow(edges, cmap='gray')
+    # plt.title("after edge detection")
+    # plt.show()
     accumulator, thetas, rhos = hough_line(edges)
-    # show_hough_line(new_image, accumulator, thetas, rhos)
     image_with_lines = draw_lines_on_image(image, accumulator, thetas, rhos, k)
     cv2.imwrite("result.jpg", image_with_lines)
+
+
+if __name__ == '__main__':
+    path = input("please enter the image path ")
+    k = int(input("please enter how many lines you want to draw "))
+    detect_best_k_lines(path, k)
