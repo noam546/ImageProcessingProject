@@ -149,54 +149,49 @@ def hysteresis(image, weak):
     return final_image
 
 
-def hough_line(img, angle_step=1):
-    # Rho and Theta ranges
-    thetas = np.deg2rad(np.arange(-90.0, 90.0, angle_step))
+def hough_transform(img):
+    thetas = []
+    thetas_range = 90
     width, height = img.shape
     diag_len = int(round(math.sqrt(width * width + height * height)))
     rhos = np.linspace(-diag_len, diag_len, diag_len * 2)
 
-    # Cache some reusable values
-    cos_t = np.cos(thetas)
-    sin_t = np.sin(thetas)
-    num_thetas = len(thetas)
+    accumulator = np.zeros((2 * diag_len, thetas_range*2), dtype=np.uint8)
+    y_s, x_s = np.nonzero(img == 255)
 
-    # Hough accumulator array of theta vs rho
-    accumulator = np.zeros((2 * diag_len, num_thetas), dtype=np.uint8)
-    are_edges = img == 255
-    y_idxs, x_idxs = np.nonzero(are_edges)
+    for i in range(len(x_s)):
+        x = x_s[i]
+        y = y_s[i]
 
-    # Vote in the hough accumulator
-    for i in range(len(x_idxs)):
-        x = x_idxs[i]
-        y = y_idxs[i]
-
-        for t_idx in range(num_thetas):
-            # Calculate rho. diag_len is added for a positive index
-            rho = diag_len + int(round(x * cos_t[t_idx] + y * sin_t[t_idx]))
-            accumulator[rho, t_idx] += 1
+        for index in range(thetas_range*2):
+            #convert to radian
+            theta = math.radians(index-thetas_range)
+            rho = diag_len + int(round(x * math.cos(theta) + y * math.sin(theta)))
+            accumulator[rho, index] += 1
+            thetas.append(theta)
 
     return accumulator, thetas, rhos
 
 
+
 def find_best_k_lines(accumulator, thetas, rhos, k):
-    # Define the threshold for line detection
     threshold = 0.2 * np.max(accumulator)
-    # Find the peaks in the accumulator
     peaks = np.argwhere(accumulator > threshold)
+
+    # comparator = lambda a: -accumulator[a[:,0],a[:,1]]
+    # # x = comparator(peaks)
+    # best_votes = np.argsort(comparator, kind='mergesort')
+
     # Sort the peaks by accumulator value in descending order
     peaks = peaks[np.argsort(accumulator[peaks[:, 0], peaks[:, 1]])][::-1]
-    # Initialize an empty list to store the lines
     lines = []
-    # Iterate over the peaks
     for i, peak in enumerate(peaks):
         if i == k:
             break
         rho = rhos[peak[0]]
         theta = thetas[peak[1]]
-        # Store the line as a tuple (rho, theta)
         lines.append((rho, theta))
-    # Return the list of lines
+
     return lines
 
 
@@ -247,12 +242,13 @@ def detect_best_k_lines(image_path, k):
     # plt.imshow(edges, cmap='gray')
     # plt.title("after edge detection")
     # plt.show()
-    accumulator, thetas, rhos = hough_line(edges)
+    accumulator, thetas, rhos = hough_transform(edges)
     image_with_lines = draw_lines_on_image(image, accumulator, thetas, rhos, k)
     cv2.imwrite("result.jpg", image_with_lines)
 
 
 if __name__ == '__main__':
     path = input("please enter the image path ")
+    # path = "test.jpg"
     k = int(input("please enter how many lines you want to draw "))
     detect_best_k_lines(path, k)
